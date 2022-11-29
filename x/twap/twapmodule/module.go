@@ -16,12 +16,13 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/osmosis-labs/osmosis/v12/x/twap"
-	twapclient "github.com/osmosis-labs/osmosis/v12/x/twap/client"
-	twapcli "github.com/osmosis-labs/osmosis/v12/x/twap/client/cli"
-	"github.com/osmosis-labs/osmosis/v12/x/twap/client/grpc"
-	"github.com/osmosis-labs/osmosis/v12/x/twap/client/queryproto"
-	"github.com/osmosis-labs/osmosis/v12/x/twap/types"
+	"github.com/osmosis-labs/osmosis/v13/x/twap"
+	twapclient "github.com/osmosis-labs/osmosis/v13/x/twap/client"
+	twapcli "github.com/osmosis-labs/osmosis/v13/x/twap/client/cli"
+	"github.com/osmosis-labs/osmosis/v13/x/twap/client/grpc"
+	"github.com/osmosis-labs/osmosis/v13/x/twap/client/queryproto"
+	"github.com/osmosis-labs/osmosis/v13/x/twap/client/v2queryproto"
+	"github.com/osmosis-labs/osmosis/v13/x/twap/types"
 )
 
 var (
@@ -55,7 +56,8 @@ func (b AppModuleBasic) RegisterRESTRoutes(ctx client.Context, r *mux.Router) {
 }
 
 func (b AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
-	queryproto.RegisterQueryHandlerClient(context.Background(), mux, queryproto.NewQueryClient(clientCtx)) //nolint:errcheck
+	queryproto.RegisterQueryHandlerClient(context.Background(), mux, queryproto.NewQueryClient(clientCtx))     //nolint:errcheck
+	v2queryproto.RegisterQueryHandlerClient(context.Background(), mux, v2queryproto.NewQueryClient(clientCtx)) //nolint:errcheck
 }
 
 func (b AppModuleBasic) GetTxCmd() *cobra.Command {
@@ -79,6 +81,7 @@ type AppModule struct {
 
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	queryproto.RegisterQueryServer(cfg.QueryServer(), grpc.Querier{Q: twapclient.Querier{K: am.k}})
+	v2queryproto.RegisterQueryServer(cfg.QueryServer(), grpc.QuerierV2{Q: twapclient.QuerierV2{K: am.k}})
 }
 
 func NewAppModule(twapKeeper twap.Keeper) AppModule {
