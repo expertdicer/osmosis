@@ -80,3 +80,23 @@ func SetupTestingAppWithLevelDb(isCheckTx bool) (app *OsmosisApp, cleanupFn func
 
 	return app, cleanupFn
 }
+
+// Setup initializes a new OsmosisApp.
+func SetupWithHeight(isCheckTx bool, initialHeight int64) *OsmosisApp {
+	db := dbm.NewMemDB()
+	app := NewOsmosisApp(log.NewNopLogger(), db, nil, true, map[int64]bool{}, DefaultNodeHome, 5, simapp.EmptyAppOptions{}, GetWasmEnabledProposals(), EmptyWasmOpts)
+	if !isCheckTx {
+		stateBytes := getDefaultGenesisStateBytes()
+
+		app.InitChain(
+			abci.RequestInitChain{
+				Validators:      []abci.ValidatorUpdate{},
+				ConsensusParams: simapp.DefaultConsensusParams,
+				AppStateBytes:   stateBytes,
+				InitialHeight:   initialHeight,
+			},
+		)
+	}
+
+	return app
+}

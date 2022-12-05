@@ -15,7 +15,7 @@ type UpgradeTestSuite struct {
 }
 
 func (suite *UpgradeTestSuite) SetupTest() {
-	suite.Setup()
+	suite.SetupWithHeight(v10.ForkHeight - 1)
 }
 
 func TestKeeperTestSuite(t *testing.T) {
@@ -34,7 +34,6 @@ func (suite *UpgradeTestSuite) TestUpgradePayments() {
 				// First run block N-1, begin new block takes ctx height + 1
 				suite.Ctx = suite.Ctx.WithBlockHeight(v10.ForkHeight - 2)
 				suite.BeginNewBlock(false)
-
 				// run upgrade height
 				suite.Require().NotPanics(func() {
 					suite.BeginNewBlock(false)

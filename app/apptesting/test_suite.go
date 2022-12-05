@@ -64,6 +64,19 @@ func (s *KeeperTestHelper) Setup() {
 	s.TestAccs = CreateRandomAccounts(3)
 }
 
+// Setup sets up basic environment with height for suite (App, Ctx, and test accounts)
+func (s *KeeperTestHelper) SetupWithHeight(initialHeight int64) {
+	s.App = app.SetupWithHeight(false, initialHeight)
+	s.Ctx = s.App.BaseApp.NewContext(false, tmtypes.Header{Height: initialHeight, ChainID: "osmosis-1", Time: time.Now().UTC()})
+	s.QueryHelper = &baseapp.QueryServiceTestHelper{
+		GRPCQueryRouter: s.App.GRPCQueryRouter(),
+		Ctx:             s.Ctx,
+	}
+
+	s.SetEpochStartTime()
+	s.TestAccs = CreateRandomAccounts(3)
+}
+
 func (s *KeeperTestHelper) SetupTestForInitGenesis() {
 	// Setting to True, leads to init genesis not running
 	s.App = app.Setup(true)
@@ -182,11 +195,11 @@ func (s *KeeperTestHelper) BeginNewBlock(executeNextEpoch bool) {
 		valAddr = valAddr2.Bytes()
 	}
 
-	s.BeginNewBlockWithProposer(executeNextEpoch, valAddr)
+	s.BeginNewBlockWithProposer(executeNextEpoch, valAddr, true)
 }
 
 // BeginNewBlockWithProposer begins a new block with a proposer.
-func (s *KeeperTestHelper) BeginNewBlockWithProposer(executeNextEpoch bool, proposer sdk.ValAddress) {
+func (s *KeeperTestHelper) BeginNewBlockWithProposer(executeNextEpoch bool, proposer sdk.ValAddress, commit bool) {
 	validator, found := s.App.StakingKeeper.GetValidator(s.Ctx, proposer)
 	s.Assert().True(found)
 
@@ -203,8 +216,8 @@ func (s *KeeperTestHelper) BeginNewBlockWithProposer(executeNextEpoch bool, prop
 	}
 
 	header := tmtypes.Header{Height: s.Ctx.BlockHeight() + 1, Time: newBlockTime}
-	newCtx := s.Ctx.WithBlockTime(newBlockTime).WithBlockHeight(s.Ctx.BlockHeight() + 1)
-	s.Ctx = newCtx
+	s.Ctx = s.Ctx.WithBlockTime(newBlockTime).WithBlockHeight(s.Ctx.BlockHeight() + 1)
+	// s.Ctx = newCtx
 	lastCommitInfo := abci.LastCommitInfo{
 		Votes: []abci.VoteInfo{{
 			Validator:       abci.Validator{Address: valAddr, Power: 1000},
@@ -212,16 +225,20 @@ func (s *KeeperTestHelper) BeginNewBlockWithProposer(executeNextEpoch bool, prop
 		}},
 	}
 	reqBeginBlock := abci.RequestBeginBlock{Header: header, LastCommitInfo: lastCommitInfo}
-
-	fmt.Println("beginning block ", s.Ctx.BlockHeight())
-	s.App.BeginBlocker(s.Ctx, reqBeginBlock)
-	s.Ctx = s.App.NewContext(false, reqBeginBlock.Header)
+	if commit {
+		s.App.BeginBlock(reqBeginBlock)
+		s.App.Commit()
+		s.Ctx = s.App.BaseApp.NewContext(true, reqBeginBlock.Header)
+	} else {
+		s.App.BeginBlocker(s.Ctx, reqBeginBlock)
+		s.Ctx = s.App.NewContext(false, reqBeginBlock.Header)
+	}
 }
 
 // EndBlock ends the block, and runs commit
 func (s *KeeperTestHelper) EndBlock() {
 	reqEndBlock := abci.RequestEndBlock{Height: s.Ctx.BlockHeight()}
-	s.App.EndBlocker(s.Ctx, reqEndBlock)
+	s.App.EndBlock(reqEndBlock)
 }
 
 func (s *KeeperTestHelper) RunMsg(msg sdk.Msg) (*sdk.Result, error) {
